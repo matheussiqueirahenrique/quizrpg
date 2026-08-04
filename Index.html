@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quiz de Afinidade de Alma - RPG</title>
+  <style>
+    :root {
+      --bg-color: #0f0f15;
+      --card-bg: rgba(22, 22, 32, 0.9);
+      --accent: #8b5cf6;
+      --accent-hover: #7c3aed;
+      --text: #e2e8f0;
+      --text-dim: #94a3b8;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text);
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .container {
+      width: 100%;
+      max-width: 650px;
+      background: var(--card-bg);
+      border: 1px solid rgba(139, 92, 246, 0.2);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    }
+    h1, h2 { text-align: center; color: var(--accent); }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      margin: 10px 0;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn:hover { background: var(--accent-hover); }
+    .option-btn {
+      display: block;
+      width: 100%;
+      padding: 12px 16px;
+      margin: 8px 0;
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      text-align: left;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .option-btn:hover {
+      background: rgba(139, 92, 246, 0.2);
+      border-color: var(--accent);
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 12px;
+      margin: 12px 0;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(0,0,0,0.3);
+      color: white;
+      box-sizing: border-box;
+    }
+    .players-list {
+      margin-top: 20px;
+      padding: 12px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 8px;
+    }
+    .player-tag {
+      display: inline-block;
+      background: rgba(139, 92, 246, 0.3);
+      padding: 4px 10px;
+      margin: 4px;
+      border-radius: 16px;
+      font-size: 14px;
+    }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- TELA INICIAL -->
+  <div id="screen-start">
+    <h1>⚔️ Quiz de Afinidade RPG</h1>
+    <p style="text-align:center; color: var(--text-dim);">Descubra a alma da sua classe sem revelar seus segredos.</p>
+    
+    <label for="player-name">Digite seu Nome / Nickname:</label>
+    <input type="text" id="player-name" placeholder="Ex: Eldrin O Sábio">
+    
+    <button class="btn" onclick="startQuiz()">Iniciar Teste</button>
+
+    <div class="players-list">
+      <h3>📜 Jogadores que já realizaram o teste:</h3>
+      <div id="public-players-list">
+        <em>Nenhum jogador registrado ainda.</em>
+      </div>
+    </div>
+  </div>
+
+  <!-- TELA DO QUIZ -->
+  <div id="screen-quiz" class="hidden">
+    <div id="question-number" style="color: var(--accent); font-weight: bold;">Pergunta 1 de 15</div>
+    <h2 id="question-text">Texto da Pergunta</h2>
+    <div id="options-container"></div>
+  </div>
+
+  <!-- TELA DE RESULTADO -->
+  <div id="screen-result" class="hidden">
+    <h1>Seu Resultado Secreto</h1>
+    <p style="text-align: center;">Sua alma ressoa mais fortemente com a classe:</p>
+    <h2 id="final-class" style="font-size: 32px; text-transform: uppercase;">-</h2>
+    <p style="text-align: center; color: var(--text-dim);">O seu nome foi registrado na lista de participantes, mas o seu resultado permanece em segredo com o Mestre!</p>
+    <button class="btn" onclick="location.reload()">Voltar ao Início</button>
+  </div>
+</div>
+
+<script>
+  // Banco de Dados das Perguntas (15 Perguntas / 6 Opções cada)
+  const questions = [
+    {
+      q: "Ao fechar os olhos e pensar no conceito de 'Força', qual sensação tátil domina sua mente?",
+      opts: [
+        { text: "A densidade gélida e inabalável do aço maciço.", class: "Cavaleiro" },
+        { text: "O calor vivo, instável e expansivo de uma chama de alta temperatura.", class: "Ferreiro" },
+        { text: "A fluidez invisível, porém constante, de um vento de tempestade.", class: "Arqueiro" },
+        { text: "A pressão contida e pronta para explodir de uma mola tensionada.", class: "Ninja" },
+        { text: "A atração gravitacional pesada e silenciosa do centro da terra.", class: "Mago" },
+        { text: "A fricção bruta, pulsante e descontrolada de garras contra a rocha.", class: "Lobisomem" }
+      ]
+    },
+    {
+      q: "Diante de um impasse, qual 'geometria de pensamento' melhor descreve sua mente?",
+      opts: [
+        { text: "Uma linha reta, direta e ininterrupta que corta qualquer obstáculo.", class: "Cowboy" },
+        { text: "Um círculo perfeito, centrado, sem arestas e em constante equilíbrio.", class: "Samurai" },
+        { text: "Um labirinto complexo com múltiplos caminhos ocultos e saídas falsas.", class: "Vampiro" },
+        { text: "Uma malha engrenada onde cada peça precisa se encaixar com precisão.", class: "Inventor" },
+        { text: "Uma espiral ascendente que busca expandir seus limites continuamente.", class: "Bardo" },
+        { text: "Uma estrutura geométrica reforçada, feita para suportar qualquer impacto.", class: "Artífice" }
+      ]
+    },
+    {
+      q: "Qual é o seu relacionamento com o conceito de 'Tempo'?",
+      opts: [
+        { text: "O tempo é um recurso a ser moldado, medido e otimizado ao extremo.", class: "Artífice" },
+        { text: "O tempo é um oceano vasto e imprevisível; você apenas navega em suas ondas.", class: "Pirata" },
+        { text: "O tempo é uma ilusão irrelevante perante a eternidade da ambição.", class: "Vampiro" },
+        { text: "O tempo é um mestre severo que exige disciplina e paciência a cada segundo.", class: "Samurai" },
+        { text: "O tempo é um ciclo natural; você vive exclusivamente no instinto do presente.", class: "Lobisomem" },
+        { text: "O tempo é uma estrada firme onde o progresso só vem com o suor diário.", class: "Ferreiro" }
+      ]
+    }
+    // Adicione mais perguntas seguindo este mesmo modelo!
+  ];
+
+  let currentQuestion = 0;
+  let scores = {};
+  let playerName = "";
+
+  // Carregar lista de jogadores salvos no navegador
+  window.onload = function() {
+    updatePlayersList();
+  };
+
+  function startQuiz() {
+    const input = document.getElementById('player-name');
+    if (!input.value.trim()) {
+      alert("Por favor, digite seu nome antes de começar!");
+      return;
+    }
+    playerName = input.value.trim();
+    document.getElementById('screen-start').classList.add('hidden');
+    document.getElementById('screen-quiz').classList.remove('hidden');
+    showQuestion();
+  }
+
+  function showQuestion() {
+    const q = questions[currentQuestion];
+    document.getElementById('question-number').innerText = `Pergunta ${currentQuestion + 1} de ${questions.length}`;
+    document.getElementById('question-text').innerText = q.q;
+    
+    const optsContainer = document.getElementById('options-container');
+    optsContainer.innerHTML = '';
+
+    q.opts.forEach(opt => {
+      const btn = document.createElement('button');
+      btn.className = 'option-btn';
+      btn.innerText = opt.text;
+      btn.onclick = () => selectOption(opt.class);
+      optsContainer.appendChild(btn);
+    });
+  }
+
+  function selectOption(cls) {
+    scores[cls] = (scores[cls] || 0) + 1;
+    currentQuestion++;
+
+    if (currentQuestion < questions.length) {
+      showQuestion();
+    } else {
+      finishQuiz();
+    }
+  }
+
+  function finishQuiz() {
+    // Descobrir a classe vencedora
+    let winningClass = "";
+    let maxScore = -1;
+    for (let cls in scores) {
+      if (scores[cls] > maxScore) {
+        maxScore = scores[cls];
+        winningClass = cls;
+      }
+    }
+
+    // Salvar o nome na lista pública local
+    let players = JSON.parse(localStorage.getItem('quiz_players') || '[]');
+    if (!players.includes(playerName)) {
+      players.push(playerName);
+      localStorage.setItem('quiz_players', JSON.stringify(players));
+    }
+
+    document.getElementById('screen-quiz').classList.add('hidden');
+    document.getElementById('screen-result').classList.remove('hidden');
+    document.getElementById('final-class').innerText = winningClass || "Aventuro";
+  }
+
+  function updatePlayersList() {
+    let players = JSON.parse(localStorage.getItem('quiz_players') || '[]');
+    const container = document.getElementById('public-players-list');
+    if (players.length > 0) {
+      container.innerHTML = players.map(p => `<span class="player-tag">👤 ${p}</span>`).join('');
+    }
+  }
+</script>
+</body>
+</html>
