@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -139,6 +140,24 @@
       gap: 10px;
       margin-top: 15px;
     }
+    
+    .details-row {
+      background: rgba(0, 0, 0, 0.3);
+    }
+    .details-box {
+      padding: 10px;
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+    .toggle-details-btn {
+      background: none;
+      border: none;
+      color: var(--accent);
+      cursor: pointer;
+      text-decoration: underline;
+      padding: 0;
+      font-size: 12px;
+    }
   </style>
 </head>
 <body>
@@ -183,7 +202,7 @@
   <!-- TELA PAINEL DO MESTRE -->
   <div id="screen-master" class="hidden">
     <h1>🧙‍♂️ Painel Secreto do Mestre</h1>
-    <p style="text-align:center; color: var(--text-dim);">Resultados completos de todos os participantes:</p>
+    <p style="text-align:center; color: var(--text-dim);">Resultados e histórico completo de respostas:</p>
 
     <div style="overflow-x: auto;">
       <table class="master-table">
@@ -192,6 +211,7 @@
             <th>Jogador</th>
             <th>Classe Revelada</th>
             <th>Data/Hora</th>
+            <th>Ações</th>
           </tr>
         </thead>
         <tbody id="master-table-body">
@@ -200,7 +220,7 @@
     </div>
 
     <div class="master-actions">
-      <button class="btn btn-success" onclick="exportResultsCSV()">📥 Exportar CSV</button>
+      <button class="btn btn-success" onclick="exportResultsCSV()">📥 Exportar CSV Detalhado</button>
       <button class="btn btn-danger" onclick="clearResults()">🗑️ Limpar Tudo</button>
     </div>
 
@@ -212,7 +232,6 @@
   const MASTER_PASSWORD = "mestre123";
 
   // Banco de perguntas com 16 perguntas de 6 opções cada.
-  // Distribuído matematicamente para que TODAS as 16 classes apareçam EXATAMENTE 6 VEZES cada.
   const questions = [
     {
       q: "Em qual destes ambientes você sente que sua mente e seu corpo funcionam no auge?",
@@ -394,6 +413,7 @@
 
   let currentQuestion = 0;
   let scores = {};
+  let history = []; // Registro de cada escolha efetuada no quiz
   let playerName = "";
 
   window.onload = function() {
@@ -407,6 +427,10 @@
       return;
     }
     playerName = input.value.trim();
+    scores = {};
+    history = [];
+    currentQuestion = 0;
+
     document.getElementById('screen-start').classList.add('hidden');
     document.getElementById('screen-quiz').classList.remove('hidden');
     showQuestion();
@@ -431,13 +455,23 @@
       const btn = document.createElement('button');
       btn.className = 'option-btn';
       btn.innerText = opt.text;
-      btn.onclick = () => selectOption(opt.class);
+      btn.onclick = () => selectOption(q.q, opt.text, opt.class);
       optsContainer.appendChild(btn);
     });
   }
 
-  function selectOption(cls) {
+  function selectOption(questionText, optionText, cls) {
+    // Incrementa pontuação
     scores[cls] = (scores[cls] || 0) + 1;
+
+    // Salva detalhe da resposta e ponto concedido
+    history.push({
+      questionNumber: currentQuestion + 1,
+      questionText: questionText,
+      selectedOptionText: optionText,
+      rewardedClass: cls
+    });
+
     currentQuestion++;
 
     if (currentQuestion < questions.length) {
@@ -465,7 +499,9 @@
     const newEntry = {
       name: playerName,
       class: winningClass,
-      date: new Date().toLocaleString('pt-BR')
+      date: new Date().toLocaleString('pt-BR'),
+      scores: scores,
+      history: history
     };
 
     if (existingIndex >= 0) {
@@ -506,17 +542,47 @@
     let results = JSON.parse(localStorage.getItem('quiz_results') || '[]');
     const tbody = document.getElementById('master-table-body');
     if (results.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">Nenhum registro encontrado.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Nenhum registro encontrado.</td></tr>';
       return;
     }
 
-    tbody.innerHTML = results.map(r => `
-      <tr>
-        <td><strong>${r.name}</strong></td>
-        <td><span style="color: var(--accent); font-weight: bold;">${r.class}</span></td>
-        <td style="color: var(--text-dim); font-size: 12px;">${r.date}</td>
-      </tr>
-    `).join('');
+    let html = '';
+    results.forEach((r, idx) => {
+      html += `
+        <tr>
+          <td><strong>${r.name}</strong></td>
+          <td><span style="color: var(--accent); font-weight: bold;">${r.class}</span></td>
+          <td style="color: var(--text-dim); font-size: 12px;">${r.date}</td>
+          <td>
+            <button class="toggle-details-btn" onclick="toggleDetails(${idx})">Detalhes</button>
+          </td>
+        </tr>
+        <tr id="details-row-${idx}" class="details-row hidden">
+          <td colspan="4">
+            <div class="details-box">
+              <strong>Pontuação Total:</strong><br>
+              ${formatScoresSummary(r.scores)}
+            </div>
+          </td>
+        </tr>
+      `;
+    });
+
+    tbody.innerHTML = html;
+  }
+
+  function formatScoresSummary(scoresObj) {
+    if (!scoresObj || Object.keys(scoresObj).length === 0) return "Sem registro detalhado de pontos.";
+    return Object.entries(scoresObj)
+      .map(([cls, score]) => `${cls}: ${score} pt(s)`)
+      .join(' | ');
+  }
+
+  function toggleDetails(idx) {
+    const el = document.getElementById(`details-row-${idx}`);
+    if (el) {
+      el.classList.toggle('hidden');
+    }
   }
 
   function closeMasterPanel() {
@@ -532,15 +598,40 @@
       return;
     }
 
-    let csvContent = "data:text/csv;charset=utf-8,Jogador,Classe,Data_Hora\n";
+    // Função de tratamento de strings para formato seguro em CSV
+    const clean = (text) => `"${String(text || '').replace(/"/g, '""')}"`;
+
+    // Cabeçalho das Seções do CSV
+    let csvContent = "\uFEFF"; // Adiciona BOM para correta visualização UTF-8 no Excel/Sheets
+    csvContent += "SEÇÃO 1: RESUMO DOS RESULTADOS\n";
+    csvContent += "Jogador,Classe Final,Data/Hora,Resumo de Pontos por Classe\n";
+
     results.forEach(r => {
-      csvContent += `"${r.name}","${r.class}","${r.date}"\n`;
+      const summaryScores = r.scores 
+        ? Object.entries(r.scores).map(([c, p]) => `${c}: ${p}`).join(' | ')
+        : "N/A";
+      csvContent += `${clean(r.name)},${clean(r.class)},${clean(r.date)},${clean(summaryScores)}\n`;
     });
 
-    const encodedUri = encodeURI(csvContent);
+    csvContent += "\n\nSEÇÃO 2: HISTÓRICO DETALHADO PERGUNTA A PERGUNTA\n";
+    csvContent += "Jogador,Num_Pergunta,Pergunta,Resposta_Escolhida,Classe_Pontuada_Mais_1\n";
+
+    results.forEach(r => {
+      if (r.history && r.history.length > 0) {
+        r.history.forEach(item => {
+          csvContent += `${clean(r.name)},${item.questionNumber},${clean(item.questionText)},${clean(item.selectedOptionText)},${clean(item.rewardedClass)}\n`;
+        });
+      } else {
+        csvContent += `${clean(r.name)},"N/A","Registro antigo sem histórico de perguntas","N/A","N/A"\n`;
+      }
+    });
+
+    // Criação do link para download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "resultados_quiz_rpg.csv");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", "relatorio_detalhado_quiz_rpg.csv");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -556,3 +647,4 @@
 </script>
 </body>
 </html>
+```
